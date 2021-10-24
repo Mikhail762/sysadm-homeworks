@@ -95,11 +95,13 @@ virtual_server 192.168.10.165 80 {
 
 ```
 после чего перезагрузил keepalived  
-```systemctl reload keepalived
+```
+systemctl reload keepalived
 ```  
 
 На real1 и 2 установил nginx, добавил VIP на loopback:  
-```ip addr add 192.168.10.165/32 dev lo label lo:165
+```
+ip addr add 192.168.10.165/32 dev lo label lo:165
 ```
 и запретил анонсировать его по arp:  
 ```
@@ -109,7 +111,8 @@ sysctl -w net.ipv4.conf.all.arp_announce=2
 
 В результате:  
 На обоих машинах balancer появились правила ipvsadm  
-```IP Virtual Server version 1.2.1 (size=4096)
+```
+IP Virtual Server version 1.2.1 (size=4096)
 Prot LocalAddress:Port Scheduler Flags
   -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
 TCP  192.168.10.165:80 rr
@@ -117,23 +120,28 @@ TCP  192.168.10.165:80 rr
   -> 192.168.10.163:80            Route   1      0          0
 ```  
 На balancer1 у keepalived статус  
-```Oct 22 14:39:02 balancer1 Keepalived_vrrp[679]: (VI_1) Entering MASTER STATE
+```
+Oct 22 14:39:02 balancer1 Keepalived_vrrp[679]: (VI_1) Entering MASTER STATE
 ```
 а на balancer2 ```Oct 22 14:38:58 balancer1 Keepalived_vrrp[679]: (VI_1) Entering BACKUP STATE```,  
 при отключении первого второй становится мастером:  
-```Oct 22 14:46:28 balancer2 Keepalived_vrrp[676]: (VI_1) Backup received priority 0 advertisement
+```
+Oct 22 14:46:28 balancer2 Keepalived_vrrp[676]: (VI_1) Backup received priority 0 advertisement
 Oct 22 14:46:29 balancer2 Keepalived_vrrp[676]: (VI_1) Entering MASTER STATE
 ```  
 А если balancer1 снова включить - отдает мастера обратно:  
-```Oct 22 14:48:46 balancer2 Keepalived_vrrp[676]: (VI_1) Master received advert from 192.168.10.160 with higher priority 100, ours 50
+```
+Oct 22 14:48:46 balancer2 Keepalived_vrrp[676]: (VI_1) Master received advert from 192.168.10.160 with higher priority 100, ours 50
 Oct 22 14:48:46 balancer2 Keepalived_vrrp[676]: (VI_1) Entering BACKUP STATE
 ```  
 При запуске с консоли ```curl -I -s 192.168.10.165:80``` возвращается ```HTTP/1.1 200 OK```,  
 а активный balancer распределяет такие соединения поочередно на real1 и real2:  
-```vagrant@real1:~$ wc -l /var/log/nginx/access.log
+```
+vagrant@real1:~$ wc -l /var/log/nginx/access.log
 52 /var/log/nginx/access.log
 ```  
-```vagrant@real2:~$ wc -l /var/log/nginx/access.log
+```
+vagrant@real2:~$ wc -l /var/log/nginx/access.log
 53 /var/log/nginx/access.log
 ```  
 ```vagrant@balancer1:~$ sudo ipvsadm -Ln
@@ -145,9 +153,22 @@ TCP  192.168.10.165:80 rr
   -> 192.168.10.163:80            Route   1      0          25
 ```
 
-** 3. В лекции мы использовали только 1 VIP адрес для балансировки. У такого подхода несколько отрицательных моментов, один из которых – невозможность активного использования нескольких хостов (1 адрес может только переехать с master на standby). Подумайте, сколько адресов оптимально использовать, если мы хотим без какой-либо деградации выдерживать потерю 1 из 3 хостов при входящем трафике 1.5 Гбит/с и физических линках хостов в 1 Гбит/с? Предполагается, что мы хотим задействовать 3 балансировщика в активном режиме (то есть не 2 адреса на 3 хоста, один из которых в обычное время простаивает). **
+**3. В лекции мы использовали только 1 VIP адрес для балансировки. У такого подхода несколько отрицательных моментов, один из которых – невозможность активного использования нескольких хостов (1 адрес может только переехать с master на standby). Подумайте, сколько адресов оптимально использовать, если мы хотим без какой-либо деградации выдерживать потерю 1 из 3 хостов при входящем трафике 1.5 Гбит/с и физических линках хостов в 1 Гбит/с? Предполагается, что мы хотим задействовать 3 балансировщика в активном режиме (то есть не 2 адреса на 3 хоста, один из которых в обычное время простаивает).**  
 
- ---
+
+Равномерно распределять запросы на несколько VIP-адресов можно при помощи DNS round robin. Сколько нужно адресов? Если сделать 3 адреса, по одному на каждый хост, то при недоступности одного хоста-балансировщика, его часть трафика 0.5Гб/с перейдет на один из двух оставшихся, забив его канал полностью. Для того, чтобы распределить трафик одного отказавшего хоста, нужно использовать шесть адресов.  
+
+| balancer1   | balancer2   | balancer3   |
+|-------------|-------------|-------------|
+| VIP1 MASTER | VIP3 MASTER | VIP5 MASTER |
+| VIP2 MASTER | VIP4 MASTER | VIP6 MASTER |
+| VIP3 BACKUP | VIP1 BACKUP | VIP2 BACKUP |  
+| VIP5 BACKUP | VIP6 BACKUP | VIP4 BACKUP |  
+
+При потере любого из трех хостов по такой схеме, нагрузка равномерно распределится между оставшимися.  
+
+ 
+---
 
 ### Как оформить ДЗ?
 
