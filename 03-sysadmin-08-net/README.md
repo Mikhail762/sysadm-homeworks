@@ -123,7 +123,8 @@ TCP  192.168.10.165:80 rr
 ```
 Oct 22 14:39:02 balancer1 Keepalived_vrrp[679]: (VI_1) Entering MASTER STATE
 ```
-а на balancer2 ```Oct 22 14:38:58 balancer1 Keepalived_vrrp[679]: (VI_1) Entering BACKUP STATE```,  
+а на balancer2  
+```Oct 22 14:38:58 balancer1 Keepalived_vrrp[679]: (VI_1) Entering BACKUP STATE```,  
 при отключении первого второй становится мастером:  
 ```
 Oct 22 14:46:28 balancer2 Keepalived_vrrp[676]: (VI_1) Backup received priority 0 advertisement
