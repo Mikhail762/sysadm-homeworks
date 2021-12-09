@@ -21,12 +21,12 @@
 
 ```json
 {
-    "info": "Sample JSON output from our service\t",
+    "info": "Sample JSON output from our service",
     "elements": [
         {
             "name": "first",
             "type": "server",
-            "ip": 7175
+            "ip": "7175"
         },
         {
             "name": "second",
@@ -35,10 +35,44 @@
         }
     ]
 }
-
+IP-адрес "first" явно определен неверно, данных для исправления недостаточно. 
 ```
 
-2. В прошлый рабочий день мы создавали скрипт, позволяющий опрашивать веб-сервисы и получать их IP. К уже реализованному функционалу нам нужно добавить возможность записи JSON и YAML файлов, описывающих наши сервисы. Формат записи JSON по одному сервису: { "имя сервиса" : "его IP"}. Формат записи YAML по одному сервису: - имя сервиса: его IP. Если в момент исполнения скрипта меняется IP у сервиса - он должен так же поменяться в yml и json файле.
+>2. В прошлый рабочий день мы создавали скрипт, позволяющий опрашивать веб-сервисы и получать их IP. К уже реализованному функционалу нам нужно добавить возможность записи JSON и YAML файлов, описывающих наши сервисы. Формат записи JSON по одному сервису: { "имя сервиса" : "его IP"}. Формат записи YAML по одному сервису: - имя сервиса: его IP. Если в момент исполнения скрипта меняется IP у сервиса - он должен так же поменяться в yml и json файле.
+
+```python
+#!/usr/bin/python3
+
+import json
+import yaml
+import socket
+
+Service_list = ['drive.google.com', 'mail.google.com', 'google.com']
+ip_check = dict.fromkeys(Service_list)
+
+try:
+  with open ('service_ip', 'r') as file:
+    for line in file:
+      key, value = line.rstrip('\n').split(' - ')
+      ip_check[key] = value
+except (IOError, ValueError):
+  pass
+
+with open ('service_ip', 'w') as file:
+  for service in Service_list:
+    ip_addr = socket.gethostbyname(service)
+    output = service + ' - ' + ip_addr
+    if ip_check[service] != ip_addr: print('[ERROR] ', output)
+    else: print(output)
+    file.write(output+'\n')
+
+ip_check_detached = [{key:ip_check[key]} for key in ip_check]
+
+with open ('service.json', 'w') as file_json:
+  json.dump(ip_check_detached, file_json, indent = 4)
+with open ('service.yml', 'w') as file_yaml:
+  yaml.dump(ip_check_detached, file_yaml, indent = 4)
+```
 
 ## Дополнительное задание (со звездочкой*) - необязательно к выполнению
 
